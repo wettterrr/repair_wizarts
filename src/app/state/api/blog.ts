@@ -96,6 +96,8 @@ function deriveMediaBaseUrl(coverUrl: string | null | undefined): string | undef
 }
 
 const BLOG_SOURCE = process.env.REACT_APP_BLOG_SOURCE || CONFIG.BLOG?.source || 'local';
+const BLOG_API_PATH =
+  process.env.REACT_APP_BLOG_API_PATH || 'script/template/repair_api';
 
 export const isLocalBlogSource = BLOG_SOURCE === 'local';
 
@@ -153,7 +155,7 @@ export async function getBlogTopics(): Promise<BlogArticle[]> {
       action: 'getBlogTopics',
     },
   };
-  const articles = await post<BlogArticle[]>('script/template/repair_api', payload);
+  const articles = await post<BlogArticle[]>(BLOG_API_PATH, payload);
   return articles.map(normalizeBlogArticleContent);
 }
 
@@ -167,7 +169,7 @@ export async function getBlogTopicById(id: number): Promise<BlogArticle> {
       id,
     },
   };
-  const article = await post<BlogArticle>('script/template/repair_api', payload);
+  const article = await post<BlogArticle>(BLOG_API_PATH, payload);
   return normalizeBlogArticleContent(article);
 }
 
@@ -181,7 +183,7 @@ export async function getBlogPosts(articleId: number, viewerId = 0): Promise<Blo
       article_id: articleId,
     },
   };
-  return post<BlogComment[]>('script/template/repair_api', payload);
+  return post<BlogComment[]>(BLOG_API_PATH, payload);
 }
 
 export async function addBlogPost(params: {
@@ -208,7 +210,7 @@ export async function addBlogPost(params: {
       text: params.text,
     },
   };
-  return post<{ id: number }>('script/template/repair_api', payload);
+  return post<{ id: number }>(BLOG_API_PATH, payload);
 }
 
 export async function editBlogPost(params: {
@@ -232,7 +234,7 @@ export async function editBlogPost(params: {
       text: params.text,
     },
   };
-  return post<{ ok: boolean }>('script/template/repair_api', payload);
+  return post<{ ok: boolean }>(BLOG_API_PATH, payload);
 }
 
 export async function deleteBlogPost(id: number, viewerId = 0): Promise<{ ok: boolean }> {
@@ -247,5 +249,5 @@ export async function deleteBlogPost(id: number, viewerId = 0): Promise<{ ok: bo
       id,
     },
   };
-  return post<{ ok: boolean }>('script/template/repair_api', payload);
+  return post<{ ok: boolean }>(BLOG_API_PATH, payload);
 }
