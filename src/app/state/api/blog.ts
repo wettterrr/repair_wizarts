@@ -98,7 +98,10 @@ function deriveMediaBaseUrl(coverUrl: string | null | undefined): string | undef
 const BLOG_SOURCE = process.env.REACT_APP_BLOG_SOURCE || CONFIG.BLOG?.source || 'local';
 const BLOG_API_PATH =
   process.env.REACT_APP_BLOG_API_PATH || 'script/template/repair_api';
-const BLOG_API_IS_VAR = process.env.REACT_APP_BLOG_API_IS_VAR !== '0';
+const BLOG_API_IS_VAR =
+  process.env.REACT_APP_BLOG_API_IS_VAR === '1' ||
+  (process.env.REACT_APP_BLOG_API_IS_VAR !== '0' &&
+    !(process.env.REACT_APP_API_URL || '').includes('itest24'));
 
 function buildBlogPayload(data: Record<string, unknown>) {
   return {
