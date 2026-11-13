@@ -4,7 +4,7 @@
  * Действия сохранены по контракту AGENTS.md. Источник данных переключается
  * через CONFIG.BLOG.source / REACT_APP_BLOG_SOURCE:
  *  - "local" — каталог из public/articles, собранный из ZIP-архивов docs/;
- *  - "api"   — штатный бэкенд script/template/repair_api.
+ *  - "api"   — штатный бэкенд script/template/repair_api_test_page.
  *
  * В обоих режимах статьи формата 1.3 отдаются как blocks и рендерятся
  * единым ArticleRenderer.
@@ -44,6 +44,7 @@ export type BlogArticle = {
   content?: string;
   excerpt: string;
   cover_url: string | null;
+  cover_file_id?: number | null;
   author: BlogAuthor;
   created_at: string;
   published_at?: string | null;
@@ -78,6 +79,7 @@ type ParsedArticleContent = {
   assets?: ArticleAsset[];
   technical_knowledge?: unknown;
   cover?: { file?: string };
+  cover_file_id?: number;
 };
 
 function buildExcerpt(text: string, limit = 240): string {
@@ -97,11 +99,8 @@ function deriveMediaBaseUrl(coverUrl: string | null | undefined): string | undef
 
 const BLOG_SOURCE = process.env.REACT_APP_BLOG_SOURCE || CONFIG.BLOG?.source || 'local';
 const BLOG_API_PATH =
-  process.env.REACT_APP_BLOG_API_PATH || 'script/template/repair_api';
-const BLOG_API_IS_VAR =
-  process.env.REACT_APP_BLOG_API_IS_VAR === '1' ||
-  (process.env.REACT_APP_BLOG_API_IS_VAR !== '0' &&
-    !(process.env.REACT_APP_API_URL || '').includes('itest24'));
+  process.env.REACT_APP_BLOG_API_PATH || 'script/template/repair_api_test_page';
+const BLOG_API_IS_VAR = process.env.REACT_APP_BLOG_API_IS_VAR !== '0';
 
 function buildBlogPayload(data: Record<string, unknown>) {
   return {
@@ -129,6 +128,7 @@ export function parseArticleContent(content: string | undefined): ParsedArticleC
       assets: parsed.assets,
       technical_knowledge: parsed.technical_knowledge,
       cover: parsed.cover,
+      cover_file_id: typeof parsed.cover_file_id === 'number' ? parsed.cover_file_id : undefined,
     };
   } catch {
     return null;
@@ -162,6 +162,7 @@ export function normalizeBlogArticleContent(article: BlogArticle): BlogArticle {
     ...article,
     excerpt: parsedText ? buildExcerpt(parsedText) : article.excerpt,
     cover_url: coverUrl || article.cover_url,
+    cover_file_id: parsed.cover_file_id || article.cover_file_id,
     media_base_url: mediaBaseUrl || deriveMediaBaseUrl(coverUrl),
     format_version: parsed.format_version || article.format_version || '1.3',
     blocks: parsed.blocks,
