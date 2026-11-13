@@ -144,6 +144,13 @@ export function normalizeBlogArticleContent(article: BlogArticle): BlogArticle {
     ? resolveArticleMedia(parsed.cover.file, mediaBaseUrl)
     : article.cover_url;
   const parsedText = parsed.summary?.trim() || getBlocksPlainText(parsed.blocks);
+  // API may return Dropbox assets beside `content`, while older Article Format 1.3
+  // payloads embed them inside the JSON content. Keep both shapes working.
+  const assetsByFile = new Map();
+  for (const asset of [...(Array.isArray(article.assets) ? article.assets : []), ...(Array.isArray(parsed.assets) ? parsed.assets : [])]) {
+    if (asset?.file) assetsByFile.set(asset.file, asset);
+  }
+  const assets = Array.from(assetsByFile.values());
 
   return {
     ...article,
@@ -152,7 +159,7 @@ export function normalizeBlogArticleContent(article: BlogArticle): BlogArticle {
     media_base_url: mediaBaseUrl || deriveMediaBaseUrl(coverUrl),
     format_version: parsed.format_version || article.format_version || '1.3',
     blocks: parsed.blocks,
-    assets: parsed.assets,
+    assets,
     technical_knowledge: parsed.technical_knowledge,
   };
 }
