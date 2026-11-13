@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
+import { AnyImage } from '../../../shared/ui/AnyMedia';
+
 import {
   getYouTubeEmbedUrl,
   isSafeMediaUrl,
@@ -68,6 +70,20 @@ function safeImageSrc(file, baseUrl) {
   return isSafeMediaUrl(src) ? src : '';
 }
 
+function getDropboxAssetId(file, assets) {
+  if (!file || !Array.isArray(assets)) return null;
+  const asset = assets.find((item) => item?.file === file);
+  const id = Number(asset?.dl_id);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function ArticleImage({ file, alt, className, mediaBaseUrl, assets }) {
+  const dlId = getDropboxAssetId(file, assets);
+  if (dlId) return <AnyImage src={dlId} alt={alt || ''} className={className} />;
+  const src = safeImageSrc(file, mediaBaseUrl);
+  return src ? <img className={className} src={src} alt={alt || ''} loading="lazy" /> : null;
+}
+
 function ParagraphBlock({ block }) {
   return <p className={styles.paragraph}>{block.text}</p>;
 }
@@ -78,10 +94,11 @@ function HeadingBlock({ block }) {
   return <Tag className={styles.heading}>{block.text}</Tag>;
 }
 
-function ImageBlock({ block, mediaBaseUrl }) {
+function ImageBlock({ block, mediaBaseUrl, assets }) {
   const [open, setOpen] = useState(false);
-  const src = safeImageSrc(block.file, mediaBaseUrl);
-  if (!src) return null;
+  const dlId = getDropboxAssetId(block.file, assets);
+  const src = dlId ? null : safeImageSrc(block.file, mediaBaseUrl);
+  if (!dlId && !src) return null;
 
   return (
     <figure className={styles.figure}>
@@ -91,11 +108,12 @@ function ImageBlock({ block, mediaBaseUrl }) {
         onClick={() => setOpen(true)}
         aria-label={block.alt ? `Увеличить: ${block.alt}` : 'Увеличить изображение'}
       >
-        <img
-          className={styles.image}
-          src={src}
+        <ArticleImage
+          file={block.file}
           alt={block.alt || block.caption || ''}
-          loading="lazy"
+          className={styles.image}
+          mediaBaseUrl={mediaBaseUrl}
+          assets={assets}
         />
       </button>
       {block.caption && <figcaption className={styles.caption}>{block.caption}</figcaption>}
@@ -111,13 +129,17 @@ function ImageBlock({ block, mediaBaseUrl }) {
   );
 }
 
-function GalleryBlock({ block, mediaBaseUrl }) {
+function GalleryBlock({ block, mediaBaseUrl, assets }) {
   const trackRef = useRef(null);
   const [openImage, setOpenImage] = useState(null);
   const images = Array.isArray(block.images)
     ? block.images
-        .map((image) => ({ ...image, src: safeImageSrc(image.file, mediaBaseUrl) }))
-        .filter((image) => image.src)
+        .map((image) => ({
+          ...image,
+          dlId: getDropboxAssetId(image.file, assets),
+          src: safeImageSrc(image.file, mediaBaseUrl),
+        }))
+        .filter((image) => image.dlId || image.src)
     : [];
 
   if (images.length === 0) return null;
@@ -160,11 +182,12 @@ function GalleryBlock({ block, mediaBaseUrl }) {
               onClick={() => setOpenImage(image)}
               aria-label={image.alt ? `Увеличить: ${image.alt}` : 'Увеличить изображение'}
             >
-              <img
-                className={styles.galleryImage}
-                src={image.src}
+              <ArticleImage
+                file={image.file}
                 alt={image.alt || image.caption || ''}
-                loading="lazy"
+                className={styles.galleryImage}
+                mediaBaseUrl={mediaBaseUrl}
+                assets={assets}
               />
             </button>
             {image.caption && <figcaption className={styles.caption}>{image.caption}</figcaption>}
@@ -265,13 +288,14 @@ function CalloutBlock({ block, tone: forcedTone }) {
   );
 }
 
-function StepsBlock({ block, mediaBaseUrl }) {
+function StepsBlock({ block, mediaBaseUrl, assets }) {
   const items = Array.isArray(block.items) ? block.items : [];
 
   return (
     <ol className={styles.steps}>
       {items.map((item, index) => {
         const imageSrc = safeImageSrc(item.image, mediaBaseUrl);
+        const imageDlId = getDropboxAssetId(item.image, assets);
         return (
           <li className={styles.step} key={index}>
             <span className={styles.stepNumber} aria-hidden="true">
@@ -280,12 +304,13 @@ function StepsBlock({ block, mediaBaseUrl }) {
             <div className={styles.stepBody}>
               <p className={styles.stepTitle}>{item.title}</p>
               {item.text && <p className={styles.stepText}>{item.text}</p>}
-              {imageSrc && (
-                <img
-                  className={styles.stepImage}
-                  src={imageSrc}
+              {(imageDlId || imageSrc) && (
+                <ArticleImage
+                  file={item.image}
                   alt={item.title || ''}
-                  loading="lazy"
+                  className={styles.stepImage}
+                  mediaBaseUrl={mediaBaseUrl}
+                  assets={assets}
                 />
               )}
               {item.warning && (
@@ -521,7 +546,7 @@ const BLOCK_COMPONENTS = {
  * Единый рендерер статей Article Format 1.3.
  * Используется и для локального каталога, и для статей из БД.
  */
-export default function ArticleRenderer({ blocks, mediaBaseUrl, className }) {
+export default function ArticleRenderer({ blocks, assets, mediaBaseUrl, className }) {
   if (!Array.isArray(blocks) || blocks.length === 0) return null;
 
   return (
@@ -531,7 +556,7 @@ export default function ArticleRenderer({ blocks, mediaBaseUrl, className }) {
         const Component = BLOCK_COMPONENTS[block.type];
         if (!Component) return null;
 
-        return <Component block={block} key={index} mediaBaseUrl={mediaBaseUrl} />;
+        return <Component block={block} key={index} assets={assets} mediaBaseUrl={mediaBaseUrl} />;
       })}
     </div>
   );
