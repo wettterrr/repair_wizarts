@@ -1,13 +1,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { AnyImage } from '../../../shared/ui/AnyMedia';
-
 import {
   getYouTubeEmbedUrl,
   isSafeMediaUrl,
   resolveArticleMedia,
 } from '../../../shared/lib/articleContent';
 import styles from './ArticleRenderer.module.css';
+import { useFileById } from '../../../state/uploaded';
 
 const MODEL_VIEWER_SCRIPT =
   'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js';
@@ -43,7 +43,7 @@ function loadModelViewer() {
   return modelViewerLoader;
 }
 
-function Lightbox({ src, alt, caption, onClose }) {
+function Lightbox({ src, dlId, alt, caption, onClose }) {
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === 'Escape') onClose();
@@ -58,11 +58,17 @@ function Lightbox({ src, alt, caption, onClose }) {
         ×
       </button>
       <figure className={styles.lightboxFigure} onClick={(event) => event.stopPropagation()}>
-        <img className={styles.lightboxImage} src={src} alt={alt || caption || ''} />
+        {dlId ? <AnyImage src={dlId} className={styles.lightboxImage} alt={alt || caption || ''} /> : <img className={styles.lightboxImage} src={src} alt={alt || caption || ''} />}
         {caption && <figcaption className={styles.lightboxCaption}>{caption}</figcaption>}
       </figure>
     </div>
   );
+}
+
+function getAssetId(file, assets) {
+  if (!file || !Array.isArray(assets)) return null;
+  const asset = assets.find((item) => item?.file === file && Number(item?.dl_id) > 0);
+  return asset ? Number(asset.dl_id) : null;
 }
 
 function safeImageSrc(file, baseUrl) {
@@ -70,15 +76,8 @@ function safeImageSrc(file, baseUrl) {
   return isSafeMediaUrl(src) ? src : '';
 }
 
-function getDropboxAssetId(file, assets) {
-  if (!file || !Array.isArray(assets)) return null;
-  const asset = assets.find((item) => item?.file === file);
-  const id = Number(asset?.dl_id);
-  return Number.isSafeInteger(id) && id > 0 ? id : null;
-}
-
 function ArticleImage({ file, alt, className, mediaBaseUrl, assets }) {
-  const dlId = getDropboxAssetId(file, assets);
+  const dlId = getAssetId(file, assets);
   if (dlId) return <AnyImage src={dlId} alt={alt || ''} className={className} />;
   const src = safeImageSrc(file, mediaBaseUrl);
   return src ? <img className={className} src={src} alt={alt || ''} loading="lazy" /> : null;
@@ -96,7 +95,7 @@ function HeadingBlock({ block }) {
 
 function ImageBlock({ block, mediaBaseUrl, assets }) {
   const [open, setOpen] = useState(false);
-  const dlId = getDropboxAssetId(block.file, assets);
+  const dlId = getAssetId(block.file, assets);
   const src = dlId ? null : safeImageSrc(block.file, mediaBaseUrl);
   if (!dlId && !src) return null;
 
@@ -120,6 +119,7 @@ function ImageBlock({ block, mediaBaseUrl, assets }) {
       {open && (
         <Lightbox
           src={src}
+          dlId={dlId}
           alt={block.alt}
           caption={block.caption}
           onClose={() => setOpen(false)}
@@ -136,7 +136,7 @@ function GalleryBlock({ block, mediaBaseUrl, assets }) {
     ? block.images
         .map((image) => ({
           ...image,
-          dlId: getDropboxAssetId(image.file, assets),
+          dlId: getAssetId(image.file, assets),
           src: safeImageSrc(image.file, mediaBaseUrl),
         }))
         .filter((image) => image.dlId || image.src)
@@ -197,6 +197,7 @@ function GalleryBlock({ block, mediaBaseUrl, assets }) {
       {openImage && (
         <Lightbox
           src={openImage.src}
+          dlId={openImage.dlId}
           alt={openImage.alt}
           caption={openImage.caption}
           onClose={() => setOpenImage(null)}
@@ -295,7 +296,7 @@ function StepsBlock({ block, mediaBaseUrl, assets }) {
     <ol className={styles.steps}>
       {items.map((item, index) => {
         const imageSrc = safeImageSrc(item.image, mediaBaseUrl);
-        const imageDlId = getDropboxAssetId(item.image, assets);
+        const imageDlId = getAssetId(item.image, assets);
         return (
           <li className={styles.step} key={index}>
             <span className={styles.stepNumber} aria-hidden="true">
@@ -403,8 +404,17 @@ function CodeBlock({ block }) {
   );
 }
 
-function Model3DBlock({ block, mediaBaseUrl }) {
-  const src = resolveArticleMedia(block.file, mediaBaseUrl);
+function Model3DBlock({ block, mediaBaseUrl, assets }) {
+  const dlId = getAssetId(block.file, assets);
+  const { blob } = useFileById(dlId);
+  const [blobUrl, setBlobUrl] = useState('');
+  useEffect(() => {
+    if (!blob) { setBlobUrl(''); return undefined; }
+    const url = URL.createObjectURL(blob);
+    setBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [blob]);
+  const src = dlId ? blobUrl : resolveArticleMedia(block.file, mediaBaseUrl);
   const figureRef = useRef(null);
   const viewerRef = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -546,7 +556,7 @@ const BLOCK_COMPONENTS = {
  * Единый рендерер статей Article Format 1.3.
  * Используется и для локального каталога, и для статей из БД.
  */
-export default function ArticleRenderer({ blocks, assets, mediaBaseUrl, className }) {
+export default function ArticleRenderer({ blocks, mediaBaseUrl, assets, className }) {
   if (!Array.isArray(blocks) || blocks.length === 0) return null;
 
   return (
@@ -556,7 +566,7 @@ export default function ArticleRenderer({ blocks, assets, mediaBaseUrl, classNam
         const Component = BLOCK_COMPONENTS[block.type];
         if (!Component) return null;
 
-        return <Component block={block} key={index} assets={assets} mediaBaseUrl={mediaBaseUrl} />;
+        return <Component block={block} key={index} mediaBaseUrl={mediaBaseUrl} assets={assets} />;
       })}
     </div>
   );
