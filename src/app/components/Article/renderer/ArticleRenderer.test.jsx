@@ -138,7 +138,6 @@ describe('ArticleRenderer — Article Format 1.3', () => {
     await waitFor(() => expect(container.querySelector('model-viewer')).not.toBeNull());
   });
 
-<<<<<<< HEAD
   it('renders Dropbox-backed images by dl_id when the legacy URL is unavailable', () => {
     render(
       <ArticleRenderer
@@ -172,7 +171,9 @@ describe('ArticleRenderer — Article Format 1.3', () => {
 
     expect(container.querySelector('[data-dropbox-id="73143"]')).toBeInTheDocument();
     expect(container.querySelector('[data-dropbox-id="73142"]')).toBeInTheDocument();
-    expect(container.querySelector('img[src="/articles/demo/media/terminal_layout.svg"]')).toBeNull();
+    expect(
+      container.querySelector('img[src="/articles/demo/media/terminal_layout.svg"]'),
+    ).toBeNull();
   });
 
   it('renders ordered and unordered lists with their declared semantics', () => {
@@ -271,7 +272,11 @@ describe('ArticleRenderer — Article Format 1.3', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Слишком высокий уровень' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: 'Слишком низкий уровень' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Слишком высокий уровень' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Слишком низкий уровень' }),
+    ).toBeInTheDocument();
   });
 });
